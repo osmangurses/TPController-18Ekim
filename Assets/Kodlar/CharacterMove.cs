@@ -6,17 +6,19 @@ public class CharacterMove : MonoBehaviour
 {
     public float speed;
     public float jumpForce;
+    public Transform cameraTransform;
     Vector2 moveDir;
     Rigidbody rb;
-    void Start()
+    CharacterState characterState;
+    void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        characterState = GetComponent<CharacterState>();
     }
-    //7-16-17-21
     void Update()
     {
-        moveDir.y = Input.GetAxis("Vertical");
-        moveDir.x = Input.GetAxis("Horizontal");
+        moveDir.y = Input.GetAxisRaw("Vertical");
+        moveDir.x = Input.GetAxisRaw("Horizontal");
         if (Input.GetButtonDown("Jump"))
         {
             Jump();
@@ -28,6 +30,28 @@ public class CharacterMove : MonoBehaviour
     }
     private void FixedUpdate()
     {
-        rb.velocity = new Vector3(moveDir.x*speed, rb.velocity.y, moveDir.y*speed);
+        Vector3 forward = cameraTransform.forward;
+        Vector3 right = cameraTransform.right;
+
+        forward.y = 0;
+        right.y = 0;
+
+        forward.Normalize();
+        right.Normalize();
+
+        Vector3 finalMoveDirection = (forward * moveDir.y + right * moveDir.x).normalized * speed;
+
+        if (finalMoveDirection.magnitude>0.1f)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(finalMoveDirection);
+            transform.rotation = Quaternion.Slerp(transform.rotation,targetRotation,Time.deltaTime*10);
+
+        }
+
+
+        State currentMoveState = (finalMoveDirection == Vector3.zero) ? State.Idle : State.Walk;
+        if (characterState.currentState != currentMoveState)
+        {characterState.ChangeState(currentMoveState); }
+        rb.velocity = finalMoveDirection + Vector3.up * rb.velocity.y;
     }
 }
